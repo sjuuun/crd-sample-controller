@@ -115,17 +115,14 @@ func (r *FooReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		return &dep, nil
 	}
 
-	// List all Deployments
-	var childDeploys appsv1.DeploymentList
+	// Get Deployment with Namespace and DeploymentName
+	if err := r.Get(ctx, client.ObjectKey{
+		Namespace: foo.Namespace,
+		Name:      foo.Spec.DeploymentName,
+	}, &appsv1.Deployment{}); err != nil {
+		log.Error(err, "There is no such deployment")
 
-	// Fix matching field
-	// If deploys are not Found, then create
-	if err := r.List(ctx, &childDeploys, client.InNamespace(req.Namespace)); err != nil {
-		log.Error(err, "unable to find deploy")
-		return ctrl.Result{}, err
-	}
-
-	if len(childDeploys.Items) == 0 {
+		// create deployment here
 		dep, err := constructDeployforFoo(&foo)
 		if err != nil {
 			log.Error(err, "unable to construct deployment from template")
@@ -141,6 +138,10 @@ func (r *FooReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 
 		log.V(1).Info("created Deployment for Foo run", "Deployment", dep)
 	}
+
+	//if foo.Spec.Replicas != nil && *foo.Spec.Replicas != *deployment.Spec.Replicas {
+	//	log.V(4).Infof("Foo %s replicas: %d, deployment replicas: %d", name, *foo.Spec.Replicas, *deployment.Spec.Replicas)
+	//}
 
 	return ctrl.Result{}, nil
 }
