@@ -19,6 +19,7 @@ import (
 	"context"
 
 	"github.com/go-logr/logr"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -51,10 +52,10 @@ func (r *FooReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	// Get the Foo resource with namespace/name
 	var foo samplecontrollerv1alpha1.Foo
 	if err := r.Get(ctx, req.NamespacedName, &foo); err != nil {
-		log.Error(err, "unable to fetch Foo")
-		// we'll ignore not-found errors, since they can't be fixed by an immediate
-		// requeue (we'll need to wait for a new notification), and we can get them
-		// on deleted requests.
+		if errors.IsNotFound(err) {
+			log.V(1).Info("foo in work queue no longer exists")
+			return ctrl.Result{}, nil
+		}
 		return ctrl.Result{}, err
 	}
 
@@ -141,11 +142,26 @@ func (r *FooReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		return ctrl.Result{}, nil
 	}
 
+	// Update Deployment's Replica
 	if foo.Spec.Replicas != nil && *foo.Spec.Replicas != *deployment.Spec.Replicas {
 		log.V(1).Info("Foo's replicas and Deployment's replicas ard different")
 		deployment.Spec.Replicas = foo.Spec.Replicas
-		r.Update(ctx, deployment)
+		if err := r.Update(ctx, deployment); err != nil {
+			log.Error(err, "Error during update deployment replicas")
+			return ctrl.Result{}, err
+		}
 		log.V(1).Info("Deployment's replica is updated")
+	}
+
+	// Update foo status
+	if foo.Status.AvailableReplicas != deployment.Status.AvailableReplicas {
+		fooCopy := foo.DeepCopy()
+		fooCopy.Status.AvailableReplicas = deployment.Status.AvailableReplicas
+		if err := r.Update(ctx, fooCopy); err != nil {
+			log.Error(err, "Error during update foo status")
+			return ctrl.Result{}, err
+		}
+		log.V(1).Info("Foo's available replica is updated")
 	}
 
 	return ctrl.Result{}, nil
