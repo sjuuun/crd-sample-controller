@@ -116,10 +116,11 @@ func (r *FooReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	}
 
 	// Get Deployment with Namespace and DeploymentName
+	deployment := &appsv1.Deployment{}
 	if err := r.Get(ctx, client.ObjectKey{
 		Namespace: foo.Namespace,
 		Name:      foo.Spec.DeploymentName,
-	}, &appsv1.Deployment{}); err != nil {
+	}, deployment); err != nil {
 		log.Error(err, "There is no such deployment")
 
 		// create deployment here
@@ -137,11 +138,15 @@ func (r *FooReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		}
 
 		log.V(1).Info("created Deployment for Foo run", "Deployment", dep)
+		return ctrl.Result{}, nil
 	}
 
-	//if foo.Spec.Replicas != nil && *foo.Spec.Replicas != *deployment.Spec.Replicas {
-	//	log.V(4).Infof("Foo %s replicas: %d, deployment replicas: %d", name, *foo.Spec.Replicas, *deployment.Spec.Replicas)
-	//}
+	if foo.Spec.Replicas != nil && *foo.Spec.Replicas != *deployment.Spec.Replicas {
+		log.V(1).Info("Foo's replicas and Deployment's replicas ard different")
+		deployment.Spec.Replicas = foo.Spec.Replicas
+		r.Update(ctx, deployment)
+		log.V(1).Info("Deployment's replica is updated")
+	}
 
 	return ctrl.Result{}, nil
 }
