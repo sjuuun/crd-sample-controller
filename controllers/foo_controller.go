@@ -40,8 +40,8 @@ type FooReconciler struct {
 
 // +kubebuilder:rbac:groups=samplecontroller.k8s.io,resources=foos,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=samplecontroller.k8s.io,resources=foos/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=samplecontroller.k8s.io,resources=deployments,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=samplecontroller.k8s.io,resources=deployments/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=apps,resources=deployments/status,verbs=get;update;patch
 
 func (r *FooReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	ctx := context.Background()
@@ -94,6 +94,7 @@ func (r *FooReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 				},
 			},
 			Spec: appsv1.DeploymentSpec{
+				Replicas: foo.Spec.Replicas,
 				Selector: &metav1.LabelSelector{
 					MatchLabels: labels,
 				},
